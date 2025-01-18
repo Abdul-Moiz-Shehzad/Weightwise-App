@@ -3,4 +3,5 @@ scikit-learn
 seaborn
 matplotlib
 streamlit
+pytest
 numpy

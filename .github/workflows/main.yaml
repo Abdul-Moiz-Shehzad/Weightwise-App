@@ -1,13 +1,44 @@
 name: Python CI/CD to Render
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
 
 jobs:
-  build-and-deploy:
-    name: Build and Deploy to Render
+  pre-checks:
+    name: Pre-Checks (Build and Test)
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: false # Do not push yet; only verify the build
+          tags: ${{ secrets.DOCKER_USERNAME }}/workwise-app:temp-test
+
+      - name: Run tests in Docker container
+        run: |
+          docker run --rm ${{ secrets.DOCKER_USERNAME }}/workwise-app:temp-test pytest
+
+  deploy:
+    name: Deploy to Render
+    needs: pre-checks # Ensure this runs only after pre-checks pass
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' # Only deploy on push to main
 
     steps:
       - name: Checkout code
@@ -25,7 +56,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          push: true
+          push: true # Push the image for deployment
           tags: ${{ secrets.DOCKER_USERNAME }}/workwise-app:latest
 
       - name: Deploy to Render
